@@ -3,6 +3,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spotify Clone</title>
+    <!-- PWA Manifest & Theme Color -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1DB954">
+    <!-- iOS Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="spotify_clone.png">
+    <!-- Windows Support -->
+    <meta name="msapplication-TileColor" content="#1DB954">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -209,22 +218,54 @@
         }
 
         @media (max-width: 768px) {
-            .app-container {
-                grid-template-columns: 1fr;
-                grid-template-areas:
-                    "main"
-                    "player";
-            }
-
-            .sidebar {
-                display: none;
-            }
-
-            .search-bar {
-                width: 100%;
-                max-width: 364px;
-            }
-        }
+    .player-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        width: 100vw;
+        min-width: 0;
+        box-sizing: border-box;
+        padding: 8px 0;
+    }
+    .player-controls {
+        justify-content: center;
+        gap: 24px;
+        margin: 8px 0;
+    }
+    .now-playing {
+        justify-content: center;
+        padding: 0 8px;
+        font-size: 13px;
+    }
+    .volume-controls {
+        display: none;
+    }
+    .play-button, .next-button, .back-button, .grid-card {
+        min-height: 48px;
+        min-width: 48px;
+    }
+    .app-container {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "main"
+            "player";
+    }
+    .sidebar {
+        display: none;
+    }
+    .search-bar {
+        width: 100%;
+        max-width: 364px;
+    }
+}
+body, .app-container {
+    overflow-x: hidden;
+}
     </style>
     <script>
         // Audius API Integration
@@ -810,5 +851,13 @@
             </div>
         </footer>
     </div>
+    <script>
+      // Register service worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('sw.js');
+        });
+      }
+    </script>
 </body>
 </html>
