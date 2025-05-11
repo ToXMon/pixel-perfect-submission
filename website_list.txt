@@ -1,0 +1,54 @@
+Pixel Plus Hackathon 2025 - Website List
+Hackathon Instructions:
+1.​ Select website from this list
+2.​ Create a pixel-perfect reproduction using one HTML file/webpage
+3.​ Match every visual detail exactly - fonts, spacing, colors, layout, and interactive elements
+4.​ Add something new to the site (the more complex the better!)
+5.​ Host your creation (ie on Vecel, Github Pages) and submit the URL along with a link to
+your GitHub repo [link]
+Good luck and happy coding!
+
+Education Websites
+1. Udemy https://www.udemy.com/
+2. Khan Academy https://www.khanacademy.org/
+3. Coursera https://www.coursera.org/
+4. Quizlet https://quizlet.com/
+5. edX https://www.edx.org/
+
+Finance Websites
+1. Robinhood https://robinhood.com/
+2. CoinMarketCap https://coinmarketcap.com/
+3. Morningstar https://www.morningstar.com/
+4. NerdWallet https://www.nerdwallet.com/
+5. PayPal https://www.paypal.com/
+
+Health Websites
+1. MyFitnessPal https://www.myfitnesspal.com/
+2. WebMD https://www.webmd.com/
+3. Strava https://www.strava.com/
+4. Calm https://www.calm.com/
+5. Fitbit https://www.fitbit.com/global/us/home
+
+News Websites
+1. BBC News https://www.bbc.com/
+2. The New York Times https://www.nytimes.com/
+3. Bloomberg https://www.bloomberg.com/
+4. Reuters https://www.reuters.com/
+5. The Athletic https://theathletic.com/
+
+Recommendations Websites
+1. Amazon https://www.amazon.com/
+2. Netflix https://www.netflix.com/
+3. Goodreads https://www.goodreads.com/
+4. TripAdvisor https://www.tripadvisor.com/
+5. Spotify https://www.spotify.com/
+
+Travel Websites
+
+1. Booking.com https://www.booking.com/
+2. TripAdvisor https://www.tripadvisor.com/
+3. Kayak https://www.kayak.com/
+4. Airbnb https://www.airbnb.com/
+5. Expedia https://www.expedia.com/
+
+

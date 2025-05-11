@@ -1,0 +1,89 @@
+Pixel Plus Hackathon ​
+Official Rules & Guidelines
+Submission Link: https://form.typeform.com/to/lJqN5mmS
+Goal: Replicate a web app from an existing website, code it to
+pixel perfection, and add something NEW!
+
+Prizes*
+●​ 1st Place: M4 MacBook Pro
+●​ 2nd Place: PlayStation 5
+●​ 3rd Place: Ray-Ban Meta Glasses ​
+*Freelance work opportunities for the top 1% as well!
+
+🎉
+
+Important dates
+●​ Submission Deadline: Sunday, April 27th 11:59 PM PT (extended to next Sunday!!)
+●​ Winners Announced: After Tuesday April 29th
+
+Website Database (Pick from this list)
+Choose any site to make from our collection of sites
+Pixel Plus Hackathon 2025 - Website List (link)
+
+⬇️ ​
+
+Submission Requirements
+●​ Submit up-to 5 submissions ie 5 max. per person (must use a different site for each)
+○​ Submit 1 minimum but to submit more than 1 entry please submit the form
+multiple times
+●​ All submissions must be implemented as functional web app
+○​ The entire code must be contained in a single HTML / webpage
+○​ You don't need a back-end and can use fake/mock data
+●​ You must resemble the original site as closely as possible.
+○​ Fonts, spacing, layout, colors, number of elements – it all matters
+●​ You must add something new to the site you are replicating
+
+○​ This could be a feature, component, any change that would make the site better
+○​ The more complex the better!
+●​ All submissions must include a link to your web app (ie host it Vercel, Github Page etc)
+○​ We need to test it!
+○​ Finalists will have to share a link to their Github repo (ie verify you built it)
+○​ If there is a tie between Finalists for a prize, code quality will determine the
+winner
+●​ Submit via the official form: https://form.typeform.com/to/lJqN5mmS
+
+Eligibility:
+●​ Open to individual participants worldwide but some country restrictions apply (see
+Community Guidelines)
+●​ All skill levels welcome
+●​ You must be 18 years of age or over
+
+Allowed Tools & Resources
+●​ Using LLM-powered code editors/IDEs (GitHub Copilot, Cursor, Windsurf) is permitted
+○​ Do not exclusively use LLMs and No-Code Ai tools to generate the site - you will
+have to provide a Github link to the site
+■​ Tools like Loveable, v0 and Replit Agent that produce fully no-code apps
+are not permitted
+
+Judging Criteria
+●​
+●​
+●​
+●​
+
+Visual Accuracy: Fonts, colors, layout matching exactly
+Completeness: Every icon/button present, nothing missing visually
+Functionality: All interactive elements work as expected
+New Enhancement: Update the website in some way via a new component, feature, etc
+○​ The more complex your addition is the higher score you will get!
+
+Common Errors to Avoid
+●​
+●​
+●​
+●​
+
+Visual element mismatches
+Missing interactivity
+Partially missing UI sections
+Icon or layout difference
+
+Terms and Conditions
+●​ By submitting an entry, you agree to our Terms of Use and Privacy Policy
+
+●​ All submissions must be respectful and no offensive material
+●​ You grant organizers the right to showcase and share your work
+●​ If prizes are unavailable in your region you can choose another prize of similar value
+If you have any questions about the hackathon, please contact us at uihacks25@outlier.ai
+
+
