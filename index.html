@@ -226,8 +226,348 @@
                 max-width: 364px;
             }
         }
+
+        /* Visualizer Styles */
+        #visualizer-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.95);
+        }
+
+        #visualizer-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .visualizer-controls {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            display: flex;
+            gap: 12px;
+            z-index: 1001;
+        }
+
+        .visualizer-button {
+            background: var(--surface);
+            color: var(--text-primary);
+            border: 1px solid var(--primary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .visualizer-button:hover {
+            background: var(--primary);
+            color: black;
+            transform: scale(1.05);
+        }
     </style>
     <script>
+        // Machine Learning Engine for Music Discovery
+        class MusicMLEngine {
+            constructor() {
+                this.listeningHistory = this.loadHistory();
+                this.userProfile = this.loadUserProfile();
+                this.genreWeights = {};
+                this.trackFeatures = new Map();
+                this.similarityCache = new Map();
+            }
+
+            loadHistory() {
+                try {
+                    return JSON.parse(localStorage.getItem('listeningHistory') || '[]');
+                } catch {
+                    return [];
+                }
+            }
+
+            loadUserProfile() {
+                try {
+                    return JSON.parse(localStorage.getItem('userProfile') || '{}');
+                } catch {
+                    return {};
+                }
+            }
+
+            saveHistory() {
+                localStorage.setItem('listeningHistory', JSON.stringify(this.listeningHistory.slice(-100)));
+            }
+
+            saveUserProfile() {
+                localStorage.setItem('userProfile', JSON.stringify(this.userProfile));
+            }
+
+            // Record user interaction for learning
+            recordPlay(track) {
+                this.listeningHistory.push({
+                    trackId: track.id,
+                    title: track.title,
+                    artist: track.user.name,
+                    genre: track.genre,
+                    mood: track.mood,
+                    timestamp: Date.now()
+                });
+                this.updateUserProfile(track);
+                this.saveHistory();
+                this.saveUserProfile();
+            }
+
+            // Build user preference profile
+            updateUserProfile(track) {
+                if (!this.userProfile.genres) this.userProfile.genres = {};
+                if (!this.userProfile.artists) this.userProfile.artists = {};
+                if (!this.userProfile.moods) this.userProfile.moods = {};
+
+                // Update genre preferences
+                const genre = track.genre || 'Unknown';
+                this.userProfile.genres[genre] = (this.userProfile.genres[genre] || 0) + 1;
+
+                // Update artist preferences
+                const artist = track.user.name;
+                this.userProfile.artists[artist] = (this.userProfile.artists[artist] || 0) + 1;
+
+                // Update mood preferences
+                const mood = track.mood || 'Unknown';
+                this.userProfile.moods[mood] = (this.userProfile.moods[mood] || 0) + 1;
+            }
+
+            // TF-IDF based semantic search
+            calculateTFIDF(query, track) {
+                const queryTerms = this.tokenize(query.toLowerCase());
+                const trackText = `${track.title} ${track.user.name} ${track.genre || ''} ${track.mood || ''}`.toLowerCase();
+                const trackTerms = this.tokenize(trackText);
+
+                if (queryTerms.length === 0 || trackTerms.length === 0) return 0;
+
+                // Calculate term frequency
+                const tf = {};
+                trackTerms.forEach(term => {
+                    tf[term] = (tf[term] || 0) + 1;
+                });
+
+                // Simple relevance score
+                let score = 0;
+                queryTerms.forEach(term => {
+                    if (tf[term]) {
+                        score += tf[term] / trackTerms.length;
+                    }
+                });
+
+                return score;
+            }
+
+            tokenize(text) {
+                return text.split(/\s+/).filter(t => t.length > 0);
+            }
+
+            // Content-based filtering using track metadata
+            calculateContentSimilarity(track1, track2) {
+                const cacheKey = `${track1.id}-${track2.id}`;
+                if (this.similarityCache.has(cacheKey)) {
+                    return this.similarityCache.get(cacheKey);
+                }
+
+                let similarity = 0;
+
+                // Genre similarity
+                if (track1.genre && track2.genre && track1.genre === track2.genre) {
+                    similarity += 0.3;
+                }
+
+                // Mood similarity
+                if (track1.mood && track2.mood && track1.mood === track2.mood) {
+                    similarity += 0.2;
+                }
+
+                // Artist similarity
+                if (track1.user.id === track2.user.id) {
+                    similarity += 0.25;
+                }
+
+                // Title similarity (using Jaccard similarity)
+                const title1Words = new Set(this.tokenize(track1.title.toLowerCase()));
+                const title2Words = new Set(this.tokenize(track2.title.toLowerCase()));
+                const intersection = new Set([...title1Words].filter(x => title2Words.has(x)));
+                const union = new Set([...title1Words, ...title2Words]);
+                if (union.size > 0) {
+                    similarity += 0.25 * (intersection.size / union.size);
+                }
+
+                this.similarityCache.set(cacheKey, similarity);
+                return similarity;
+            }
+
+            // Collaborative filtering based on listening patterns
+            getPersonalizedRecommendations(tracks, limit = 10) {
+                if (!tracks || tracks.length === 0) return [];
+                if (this.listeningHistory.length === 0) {
+                    // Cold start: return trending tracks
+                    return tracks.slice(0, limit);
+                }
+
+                // Score each track based on user preferences
+                const scoredTracks = tracks.map(track => {
+                    let score = 0;
+
+                    // Genre preference
+                    const genre = track.genre || 'Unknown';
+                    if (this.userProfile.genres && this.userProfile.genres[genre]) {
+                        score += this.userProfile.genres[genre] * 0.4;
+                    }
+
+                    // Artist preference
+                    const artist = track.user.name;
+                    if (this.userProfile.artists && this.userProfile.artists[artist]) {
+                        score += this.userProfile.artists[artist] * 0.35;
+                    }
+
+                    // Mood preference
+                    const mood = track.mood || 'Unknown';
+                    if (this.userProfile.moods && this.userProfile.moods[mood]) {
+                        score += this.userProfile.moods[mood] * 0.25;
+                    }
+
+                    // Recency bonus
+                    if (track.created_at) {
+                        const daysOld = (Date.now() - new Date(track.created_at).getTime()) / (1000 * 60 * 60 * 24);
+                        score += Math.max(0, 1 - daysOld / 365) * 0.1;
+                    }
+
+                    // Popularity factor
+                    if (track.play_count) {
+                        score += Math.log10(track.play_count + 1) * 0.05;
+                    }
+
+                    return { track, score };
+                });
+
+                // Sort by score and return top tracks
+                return scoredTracks
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, limit)
+                    .map(item => item.track);
+            }
+
+            // Find similar tracks using content-based filtering
+            findSimilarTracks(sourceTrack, candidateTracks, limit = 5) {
+                if (!candidateTracks || candidateTracks.length === 0) return [];
+
+                const similarities = candidateTracks
+                    .filter(track => track.id !== sourceTrack.id)
+                    .map(track => ({
+                        track,
+                        similarity: this.calculateContentSimilarity(sourceTrack, track)
+                    }))
+                    .sort((a, b) => b.similarity - a.similarity)
+                    .slice(0, limit);
+
+                return similarities.map(item => item.track);
+            }
+
+            // Enhanced search with ML ranking
+            rankSearchResults(query, tracks) {
+                if (!tracks || tracks.length === 0) return [];
+
+                const rankedTracks = tracks.map(track => {
+                    // TF-IDF score
+                    const tfidfScore = this.calculateTFIDF(query, track);
+
+                    // Personalization score
+                    let personalScore = 0;
+                    if (this.listeningHistory.length > 0) {
+                        const genre = track.genre || 'Unknown';
+                        const artist = track.user.name;
+                        personalScore += (this.userProfile.genres?.[genre] || 0) * 0.3;
+                        personalScore += (this.userProfile.artists?.[artist] || 0) * 0.3;
+                    }
+
+                    // Popularity score
+                    const popularityScore = track.play_count ? Math.log10(track.play_count + 1) / 10 : 0;
+
+                    // Combined score
+                    const finalScore = tfidfScore * 0.6 + personalScore * 0.3 + popularityScore * 0.1;
+
+                    return { track, score: finalScore };
+                });
+
+                return rankedTracks
+                    .sort((a, b) => b.score - a.score)
+                    .map(item => item.track);
+            }
+
+            // Mood-based discovery
+            discoverByMood(mood, tracks) {
+                const moodKeywords = {
+                    'energetic': ['upbeat', 'dance', 'electronic', 'edm', 'house', 'party'],
+                    'chill': ['ambient', 'lofi', 'downtempo', 'chillout', 'relaxing'],
+                    'focus': ['instrumental', 'classical', 'ambient', 'study'],
+                    'workout': ['rock', 'metal', 'hip-hop', 'electronic', 'high-energy'],
+                    'happy': ['pop', 'indie', 'upbeat', 'feel-good'],
+                    'sad': ['acoustic', 'indie', 'emotional', 'ballad']
+                };
+
+                const keywords = moodKeywords[mood.toLowerCase()] || [];
+                
+                return tracks.filter(track => {
+                    const trackText = `${track.title} ${track.genre || ''} ${track.mood || ''}`.toLowerCase();
+                    return keywords.some(keyword => trackText.includes(keyword));
+                }).slice(0, 20);
+            }
+
+            // Smart playlist generation
+            generatePlaylist(seedTrack, allTracks, playlistSize = 15) {
+                if (!allTracks || allTracks.length === 0) return [seedTrack];
+
+                const playlist = [seedTrack];
+                let candidates = [...allTracks].filter(t => t.id !== seedTrack.id);
+
+                while (playlist.length < playlistSize && candidates.length > 0) {
+                    // Find most similar track to the last added track
+                    const lastTrack = playlist[playlist.length - 1];
+                    const similarities = candidates.map(track => ({
+                        track,
+                        similarity: this.calculateContentSimilarity(lastTrack, track)
+                    }));
+
+                    // Add some randomness to avoid repetitive playlists
+                    similarities.sort((a, b) => {
+                        const randomFactor = Math.random() * 0.3 - 0.15;
+                        return (b.similarity + randomFactor) - (a.similarity + randomFactor);
+                    });
+
+                    const nextTrack = similarities[0].track;
+                    playlist.push(nextTrack);
+                    candidates = candidates.filter(t => t.id !== nextTrack.id);
+                }
+
+                return playlist;
+            }
+
+            // Get listening statistics
+            getStats() {
+                const totalPlays = this.listeningHistory.length;
+                const uniqueTracks = new Set(this.listeningHistory.map(h => h.trackId)).size;
+                const topGenres = Object.entries(this.userProfile.genres || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3)
+                    .map(([genre]) => genre);
+                const topArtists = Object.entries(this.userProfile.artists || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3)
+                    .map(([artist]) => artist);
+
+                return { totalPlays, uniqueTracks, topGenres, topArtists };
+            }
+        }
+
         // Audius API Integration
         class AudioVisualizer {
             static instance = null;
@@ -458,6 +798,8 @@
                 this.currentTrack = null;
                 this.visualizer = null;
                 this.isAudioConnected = false;
+                this.mlEngine = new MusicMLEngine();
+                this.allTracks = [];
 
                 // Initialize after DOM is ready
                 document.addEventListener('DOMContentLoaded', () => {
@@ -480,8 +822,137 @@
                     return true;
                 } catch (error) {
                     console.error('Failed to initialize Audius API:', error);
-                    return false;
+                    console.log('Running in demo mode with mock data');
+                    this.host = 'https://discoveryprovider.audius.co';
+                    this.useMockData = true;
+                    await this.setupAudioListeners();
+                    return true;
                 }
+            }
+
+            getMockTracks() {
+                return [
+                    {
+                        id: '1',
+                        title: 'Electronic Dreams',
+                        user: { id: 'u1', name: 'DJ Synthesis', handle: 'djsynthesis' },
+                        genre: 'Electronic',
+                        mood: 'Energetic',
+                        play_count: 15420,
+                        created_at: '2024-01-15T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/1DB954/FFFFFF?text=ED', '480x480': 'https://via.placeholder.com/480/1DB954/FFFFFF?text=Electronic' }
+                    },
+                    {
+                        id: '2',
+                        title: 'Sunset Vibes',
+                        user: { id: 'u2', name: 'Chill Master', handle: 'chillmaster' },
+                        genre: 'Chillout',
+                        mood: 'Chill',
+                        play_count: 23100,
+                        created_at: '2024-02-20T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/FF6B6B/FFFFFF?text=SV', '480x480': 'https://via.placeholder.com/480/FF6B6B/FFFFFF?text=Sunset' }
+                    },
+                    {
+                        id: '3',
+                        title: 'Deep Focus',
+                        user: { id: 'u3', name: 'Ambient Artist', handle: 'ambientartist' },
+                        genre: 'Ambient',
+                        mood: 'Focus',
+                        play_count: 8750,
+                        created_at: '2024-03-10T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/4ECDC4/FFFFFF?text=DF', '480x480': 'https://via.placeholder.com/480/4ECDC4/FFFFFF?text=Focus' }
+                    },
+                    {
+                        id: '4',
+                        title: 'Workout Anthem',
+                        user: { id: 'u4', name: 'Energy Beats', handle: 'energybeats' },
+                        genre: 'Hip-Hop',
+                        mood: 'Workout',
+                        play_count: 34500,
+                        created_at: '2024-01-05T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/F38B2B/FFFFFF?text=WA', '480x480': 'https://via.placeholder.com/480/F38B2B/FFFFFF?text=Workout' }
+                    },
+                    {
+                        id: '5',
+                        title: 'Happy Days',
+                        user: { id: 'u5', name: 'Pop Star', handle: 'popstar' },
+                        genre: 'Pop',
+                        mood: 'Happy',
+                        play_count: 45200,
+                        created_at: '2024-02-01T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/FFE66D/000000?text=HD', '480x480': 'https://via.placeholder.com/480/FFE66D/000000?text=Happy' }
+                    },
+                    {
+                        id: '6',
+                        title: 'Melancholy Rain',
+                        user: { id: 'u6', name: 'Acoustic Soul', handle: 'acousticsoul' },
+                        genre: 'Acoustic',
+                        mood: 'Sad',
+                        play_count: 12300,
+                        created_at: '2024-03-15T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/95B8D1/FFFFFF?text=MR', '480x480': 'https://via.placeholder.com/480/95B8D1/FFFFFF?text=Rain' }
+                    },
+                    {
+                        id: '7',
+                        title: 'Neon Nights',
+                        user: { id: 'u1', name: 'DJ Synthesis', handle: 'djsynthesis' },
+                        genre: 'Electronic',
+                        mood: 'Energetic',
+                        play_count: 18900,
+                        created_at: '2024-04-01T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/1DB954/FFFFFF?text=NN', '480x480': 'https://via.placeholder.com/480/1DB954/FFFFFF?text=Neon' }
+                    },
+                    {
+                        id: '8',
+                        title: 'Morning Coffee',
+                        user: { id: 'u2', name: 'Chill Master', handle: 'chillmaster' },
+                        genre: 'Lofi',
+                        mood: 'Chill',
+                        play_count: 29400,
+                        created_at: '2024-03-25T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/FF6B6B/FFFFFF?text=MC', '480x480': 'https://via.placeholder.com/480/FF6B6B/FFFFFF?text=Coffee' }
+                    },
+                    {
+                        id: '9',
+                        title: 'Coding Flow',
+                        user: { id: 'u3', name: 'Ambient Artist', handle: 'ambientartist' },
+                        genre: 'Instrumental',
+                        mood: 'Focus',
+                        play_count: 15600,
+                        created_at: '2024-02-28T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/4ECDC4/FFFFFF?text=CF', '480x480': 'https://via.placeholder.com/480/4ECDC4/FFFFFF?text=Coding' }
+                    },
+                    {
+                        id: '10',
+                        title: 'Beast Mode',
+                        user: { id: 'u4', name: 'Energy Beats', handle: 'energybeats' },
+                        genre: 'Rock',
+                        mood: 'Workout',
+                        play_count: 41200,
+                        created_at: '2024-01-20T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/F38B2B/FFFFFF?text=BM', '480x480': 'https://via.placeholder.com/480/F38B2B/FFFFFF?text=Beast' }
+                    },
+                    {
+                        id: '11',
+                        title: 'Summer Breeze',
+                        user: { id: 'u5', name: 'Pop Star', handle: 'popstar' },
+                        genre: 'Indie',
+                        mood: 'Happy',
+                        play_count: 38700,
+                        created_at: '2024-04-10T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/FFE66D/000000?text=SB', '480x480': 'https://via.placeholder.com/480/FFE66D/000000?text=Summer' }
+                    },
+                    {
+                        id: '12',
+                        title: 'Lonely Hearts',
+                        user: { id: 'u6', name: 'Acoustic Soul', handle: 'acousticsoul' },
+                        genre: 'Ballad',
+                        mood: 'Sad',
+                        play_count: 16800,
+                        created_at: '2024-03-30T00:00:00Z',
+                        artwork: { '150x150': 'https://via.placeholder.com/150/95B8D1/FFFFFF?text=LH', '480x480': 'https://via.placeholder.com/480/95B8D1/FFFFFF?text=Hearts' }
+                    }
+                ];
             }
 
             async setupAudioListeners() {
@@ -519,11 +990,24 @@
 
             async search(query, limit = 20) {
                 try {
+                    if (this.useMockData) {
+                        const mockTracks = this.getMockTracks();
+                        const filtered = mockTracks.filter(track => 
+                            track.title.toLowerCase().includes(query.toLowerCase()) ||
+                            track.user.name.toLowerCase().includes(query.toLowerCase()) ||
+                            (track.genre && track.genre.toLowerCase().includes(query.toLowerCase()))
+                        );
+                        return this.mlEngine.rankSearchResults(query, filtered);
+                    }
+                    
                     const response = await fetch(
                         `${this.host}/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`
                     );
                     const { data } = await response.json();
-                    return data || [];
+                    
+                    // Apply ML ranking to search results
+                    const rankedResults = this.mlEngine.rankSearchResults(query, data || []);
+                    return rankedResults;
                 } catch (error) {
                     console.error('Search failed:', error);
                     return [];
@@ -532,15 +1016,57 @@
 
             async getTrending(limit = 20) {
                 try {
+                    if (this.useMockData) {
+                        this.allTracks = this.getMockTracks();
+                        return this.allTracks;
+                    }
+                    
                     const response = await fetch(
                         `${this.host}/v1/tracks/trending?limit=${limit}`
                     );
                     const { data } = await response.json();
+                    this.allTracks = data || [];
                     return data || [];
                 } catch (error) {
                     console.error('Failed to get trending tracks:', error);
                     return [];
                 }
+            }
+
+            async getRecommendations(limit = 20) {
+                try {
+                    if (this.useMockData) {
+                        this.allTracks = this.getMockTracks();
+                        const recommendations = this.mlEngine.getPersonalizedRecommendations(this.allTracks, limit);
+                        return recommendations;
+                    }
+                    
+                    // Get a larger pool of tracks for better recommendations
+                    const response = await fetch(
+                        `${this.host}/v1/tracks/trending?limit=100`
+                    );
+                    const { data } = await response.json();
+                    this.allTracks = data || [];
+                    
+                    // Use ML engine to generate personalized recommendations
+                    const recommendations = this.mlEngine.getPersonalizedRecommendations(data || [], limit);
+                    return recommendations;
+                } catch (error) {
+                    console.error('Failed to get recommendations:', error);
+                    return [];
+                }
+            }
+
+            getSimilarTracks(track, limit = 5) {
+                return this.mlEngine.findSimilarTracks(track, this.allTracks, limit);
+            }
+
+            discoverByMood(mood) {
+                return this.mlEngine.discoverByMood(mood, this.allTracks);
+            }
+
+            generatePlaylist(seedTrack, size = 15) {
+                return this.mlEngine.generatePlaylist(seedTrack, this.allTracks, size);
             }
 
             getStreamUrl(trackId) {
@@ -566,6 +1092,10 @@
                     this.audio.src = this.getStreamUrl(track.id);
                     await this.audio.play();
                     await this.updateNowPlaying(track);
+                    
+                    // Record play for ML learning
+                    this.mlEngine.recordPlay(track);
+                    
                     console.log('Playing track:', track.title);
                 } catch (error) {
                     console.error('Error playing track:', error);
@@ -595,11 +1125,56 @@
                 this.contentGrid = document.querySelector('.content-grid');
                 this.searchInput = document.querySelector('.search-bar input');
                 this.searchTimeout = null;
+                this.currentView = 'trending';
             }
 
             init() {
                 this.setupEventListeners();
                 this.loadTrendingTracks();
+                this.setupMLFeatures();
+            }
+
+            setupMLFeatures() {
+                // Add ML feature buttons to sidebar
+                const sidebar = document.querySelector('.sidebar');
+                const mlMenu = document.createElement('div');
+                mlMenu.className = 'ml-features';
+                mlMenu.innerHTML = `
+                    <div style="padding: 0 12px; margin-top: 24px;">
+                        <h4 style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px;">ML Discovery</h4>
+                        <ul class="nav-menu">
+                            <li><a href="#" id="recommendations-link">
+                                <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"></path></svg>
+                                For You
+                            </a></li>
+                            <li><a href="#" id="mood-discovery-link">
+                                <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9c.83 0 1.5-.67 1.5-1.5S7.83 8 7 8s-1.5.67-1.5 1.5S6.17 11 7 11zm10 0c.83 0 1.5-.67 1.5-1.5S17.83 8 17 8s-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-5 7c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"></path></svg>
+                                Mood Discovery
+                            </a></li>
+                            <li><a href="#" id="stats-link">
+                                <svg role="img" height="24" width="24" viewBox="0 0 24 24"><path fill="currentColor" d="M3 22v-20h2v20h-2zm4 0v-12h2v12h-2zm4 0v-8h2v8h-2zm4 0v-16h2v16h-2zm4 0v-4h2v4h-2z"></path></svg>
+                                Your Stats
+                            </a></li>
+                        </ul>
+                    </div>
+                `;
+                sidebar.appendChild(mlMenu);
+
+                // Add event listeners for ML features
+                document.getElementById('recommendations-link').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.showRecommendations();
+                });
+
+                document.getElementById('mood-discovery-link').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.showMoodDiscovery();
+                });
+
+                document.getElementById('stats-link').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.showStats();
+                });
             }
 
             setupEventListeners() {
@@ -632,8 +1207,156 @@
             }
 
             async loadTrendingTracks() {
+                this.currentView = 'trending';
+                this.updateHeader('Trending Tracks');
                 const tracks = await this.audius.getTrending();
                 this.renderTracks(tracks);
+            }
+
+            async showRecommendations() {
+                this.currentView = 'recommendations';
+                this.updateHeader('Personalized For You');
+                const recommendations = await this.audius.getRecommendations(20);
+                
+                if (recommendations.length === 0) {
+                    this.contentGrid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                            <h2>Start Building Your Taste Profile</h2>
+                            <p style="color: var(--text-secondary); margin-top: 16px;">
+                                Play some tracks to help us understand your music preferences.<br>
+                                The more you listen, the better your recommendations will be!
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    this.renderTracks(recommendations);
+                }
+            }
+
+            showMoodDiscovery() {
+                this.currentView = 'mood';
+                this.updateHeader('Discover by Mood');
+                
+                const moods = [
+                    { name: 'Energetic', emoji: '⚡', color: '#FF6B6B' },
+                    { name: 'Chill', emoji: '😌', color: '#4ECDC4' },
+                    { name: 'Focus', emoji: '🎯', color: '#45B7D1' },
+                    { name: 'Workout', emoji: '💪', color: '#F38B2B' },
+                    { name: 'Happy', emoji: '😊', color: '#FFE66D' },
+                    { name: 'Sad', emoji: '😢', color: '#95B8D1' }
+                ];
+
+                this.contentGrid.innerHTML = moods.map(mood => `
+                    <div class="mood-card" onclick="app.ui.discoverByMood('${mood.name}')" 
+                         style="background: linear-gradient(135deg, ${mood.color}22 0%, ${mood.color}44 100%); 
+                                border: 2px solid ${mood.color}; 
+                                padding: 32px; 
+                                border-radius: 16px; 
+                                cursor: pointer;
+                                transition: transform 0.2s ease, box-shadow 0.2s ease;
+                                text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">${mood.emoji}</div>
+                        <h3 style="font-size: 20px; margin-bottom: 8px;">${mood.name}</h3>
+                        <p style="font-size: 14px; color: var(--text-secondary);">Discover ${mood.name.toLowerCase()} tracks</p>
+                    </div>
+                `).join('');
+
+                // Add hover effects
+                document.querySelectorAll('.mood-card').forEach(card => {
+                    card.addEventListener('mouseenter', () => {
+                        card.style.transform = 'translateY(-8px)';
+                        card.style.boxShadow = '0 12px 24px rgba(0,0,0,0.3)';
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        card.style.transform = 'translateY(0)';
+                        card.style.boxShadow = 'none';
+                    });
+                });
+            }
+
+            async discoverByMood(mood) {
+                this.updateHeader(`${mood} Music`);
+                const tracks = this.audius.discoverByMood(mood);
+                
+                if (tracks.length === 0) {
+                    this.contentGrid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                            <h2>No ${mood} tracks found</h2>
+                            <p style="color: var(--text-secondary);">Try another mood or search for specific tracks</p>
+                        </div>
+                    `;
+                } else {
+                    this.renderTracks(tracks);
+                }
+            }
+
+            showStats() {
+                this.currentView = 'stats';
+                this.updateHeader('Your Listening Stats');
+                
+                const stats = this.audius.mlEngine.getStats();
+                
+                this.contentGrid.innerHTML = `
+                    <div style="grid-column: 1/-1; padding: 24px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 40px;">
+                            <div class="stat-card" style="background: var(--surface); padding: 24px; border-radius: 12px;">
+                                <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Total Plays</div>
+                                <div style="font-size: 48px; font-weight: 700; color: var(--primary);">${stats.totalPlays}</div>
+                            </div>
+                            <div class="stat-card" style="background: var(--surface); padding: 24px; border-radius: 12px;">
+                                <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Unique Tracks</div>
+                                <div style="font-size: 48px; font-weight: 700; color: var(--primary);">${stats.uniqueTracks}</div>
+                            </div>
+                        </div>
+                        
+                        ${stats.topGenres.length > 0 ? `
+                            <div style="margin-bottom: 32px;">
+                                <h3 style="font-size: 24px; margin-bottom: 16px;">Top Genres</h3>
+                                <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                                    ${stats.topGenres.map(genre => `
+                                        <span style="background: var(--primary); color: black; padding: 8px 16px; border-radius: 24px; font-weight: 600;">
+                                            ${genre}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${stats.topArtists.length > 0 ? `
+                            <div>
+                                <h3 style="font-size: 24px; margin-bottom: 16px;">Top Artists</h3>
+                                <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                                    ${stats.topArtists.map(artist => `
+                                        <span style="background: var(--surface-low); padding: 8px 16px; border-radius: 24px; font-weight: 500;">
+                                            ${artist}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${stats.totalPlays === 0 ? `
+                            <div style="text-align: center; padding: 40px; opacity: 0.6;">
+                                <p>Start listening to tracks to see your personalized statistics!</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            updateHeader(title) {
+                const header = document.querySelector('.header');
+                const existingTitle = header.querySelector('.page-title');
+                
+                if (existingTitle) {
+                    existingTitle.textContent = title;
+                } else {
+                    const titleEl = document.createElement('h1');
+                    titleEl.className = 'page-title';
+                    titleEl.textContent = title;
+                    titleEl.style.cssText = 'font-size: 24px; font-weight: 700; margin-left: 16px;';
+                    header.insertBefore(titleEl, header.firstChild);
+                }
             }
 
             renderTracks(tracks) {
@@ -650,13 +1373,74 @@
                 this.contentGrid.innerHTML = tracks.map(track => {
                     const artworkUrl = track.artwork?.['480x480'] || 'https://i.imgur.com/ZzHmDan.png';
                     return `
-                        <div class="grid-card" onclick='app.audius.play(${JSON.stringify(track)})'>
-                            <img src="${artworkUrl}" alt="${track.title}">
+                        <div class="grid-card" onclick='app.audius.play(${JSON.stringify(track).replace(/'/g, "&#39;")})'>
+                            <div style="position: relative;">
+                                <img src="${artworkUrl}" alt="${track.title}">
+                                <button class="similar-tracks-btn" 
+                                        onclick='event.stopPropagation(); app.ui.showSimilarTracks(${JSON.stringify(track).replace(/'/g, "&#39;")})'
+                                        style="position: absolute; top: 8px; right: 8px; 
+                                               background: rgba(0,0,0,0.7); border: none; 
+                                               border-radius: 50%; width: 32px; height: 32px; 
+                                               cursor: pointer; display: flex; align-items: center; 
+                                               justify-content: center; opacity: 0; transition: opacity 0.2s;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                                    </svg>
+                                </button>
+                            </div>
                             <h3>${track.title}</h3>
                             <p>${track.user.name}</p>
+                            ${track.genre ? `<p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${track.genre}</p>` : ''}
                         </div>
                     `;
                 }).join('');
+
+                // Show similar tracks button on hover
+                document.querySelectorAll('.grid-card').forEach(card => {
+                    card.addEventListener('mouseenter', () => {
+                        const btn = card.querySelector('.similar-tracks-btn');
+                        if (btn) btn.style.opacity = '1';
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        const btn = card.querySelector('.similar-tracks-btn');
+                        if (btn) btn.style.opacity = '0';
+                    });
+                });
+            }
+
+            showSimilarTracks(track) {
+                this.updateHeader(`Similar to "${track.title}"`);
+                const similarTracks = this.audius.getSimilarTracks(track, 20);
+                
+                if (similarTracks.length === 0) {
+                    this.contentGrid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                            <h2>No similar tracks found</h2>
+                            <p style="color: var(--text-secondary);">Try exploring other tracks</p>
+                        </div>
+                    `;
+                } else {
+                    // Add option to generate playlist
+                    const headerDiv = document.createElement('div');
+                    headerDiv.style.cssText = 'grid-column: 1/-1; margin-bottom: 16px; display: flex; gap: 12px;';
+                    headerDiv.innerHTML = `
+                        <button onclick='app.ui.generatePlaylistFromTrack(${JSON.stringify(track).replace(/'/g, "&#39;")})'
+                                style="background: var(--primary); color: black; border: none; 
+                                       padding: 12px 24px; border-radius: 24px; font-weight: 700; 
+                                       cursor: pointer; font-size: 14px;">
+                            Generate Playlist
+                        </button>
+                    `;
+                    this.contentGrid.innerHTML = '';
+                    this.contentGrid.appendChild(headerDiv);
+                    this.renderTracks(similarTracks);
+                }
+            }
+
+            generatePlaylistFromTrack(seedTrack) {
+                this.updateHeader(`Playlist from "${seedTrack.title}"`);
+                const playlist = this.audius.generatePlaylist(seedTrack, 15);
+                this.renderTracks(playlist);
             }
         }
 
@@ -667,8 +1451,9 @@
             const initialized = await audius.init();
             
             if (initialized) {
-                app = new SpotifyCloneUI(audius);
-                app.init();
+                const ui = new SpotifyCloneUI(audius);
+                ui.init();
+                app = { audius, ui };
             } else {
                 alert('Failed to initialize Audius API. Please try again later.');
             }
